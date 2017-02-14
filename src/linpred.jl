@@ -138,9 +138,21 @@ ModelMatrix(obj::LinPredModel) = obj.pp.X
 model_response(obj::LinPredModel) = obj.rr.y
 
 fitted(m::LinPredModel) = m.rr.mu
-predict(mm::LinPredModel) = fitted(mm)
 formula(obj::LinPredModel) = ModelFrame(obj).formula
 residuals(obj::LinPredModel) = residuals(obj.rr)
+predict(mm::LinPredModel) = fitted(mm)
+predict(mm::LinPredModel, interval_type::Symbol, level::Real = 0.95) = predict(mm, mm.pp.X, interval_type, level)
+
+# an internal function called by predict for both LinearModel and AbstractGLM
+function predict_confint(mm::LinPredModel, newx::AbstractMatrix, interval_type::Symbol, level)
+    retmean = newx * coef(mm)
+    R = cholfact!(mm.pp)[:U] #get the R matrix from the QR factorization
+    residvar = (ones(size(newx,2),1) * deviance(mm)/dof_residual(mm))
+    retvariance = (newx/R).^2 * residvar
+
+    interval = quantile(TDist(dof_residual(mm)), (1 - level)/2) * sqrt.(retvariance)
+    hcat(retmean, retmean .+ interval, retmean .- interval)
+end
 
 """
     nobs(obj::LinearModel)
