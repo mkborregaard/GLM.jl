@@ -351,6 +351,17 @@ an offset.
 """
 function predict(mm::AbstractGLM, newX::AbstractMatrix; offset::FPVector=Vector{eltype(newX)}(0))
     eta = newX * coef(mm)
+    offset_and_link(mm, newX, eta; offset = offset)
+end
+
+function predict(mm::AbstractGLM, newX::AbstractMatrix, interval_type = symbol, level = 0.95; offset::FPVector=Array(eltype(newX),0))
+    unique(mm.rr.wts) == [1.] || error("prediction with confidence intervals not yet implemented for weighted regression")
+    in(interval_type, [:conf, :confint, :confidence, :confidenceinterval, :confidence_interval]) || error("only :confint is currently implemented") #:predint will be implemented
+    eta = predict_confint(mm, newX, interval_type, level)
+    offset_and_link(mm, newX, eta; offset = offset)
+end
+
+function offset_and_link(mm::AbstractGLM, newX::AbstractMatrix, eta; offset::FPVector=Array(eltype(newX),0))
     if !isempty(mm.rr.offset)
         length(offset) == size(newX, 1) ||
             throw(ArgumentError("fit with offset, so `offset` kw arg must be an offset of length `size(newX, 1)`"))
